@@ -11,5 +11,16 @@ contextBridge.exposeInMainWorld('electron', {
             }
             return Promise.reject(new Error('Invalid channel'));
         }
+    },
+    closeErrorWindow: () => {
+        ipcRenderer.send('close-error-window');
+    },
+    onErrorMessage: (callback) => {
+        ipcRenderer.on('error-message', (event, message) => {
+            callback(message);
+        });
+    },
+    onLoadingComplete: (callback) => {
+        ipcRenderer.on('loading-complete', () => callback());
     }
 }); 
