@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, globalShortcut, Menu } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -31,7 +31,9 @@ function createComfyWindow() {
             contextIsolation: true,
             webSecurity: false,
             preload: path.join(__dirname, 'preload.js')
-        }
+        },
+        autoHideMenuBar: true,
+        frame: true
     });
 
     comfyWindow.loadURL('http://127.0.0.1:8188');
@@ -130,7 +132,9 @@ function createWindow() {
             contextIsolation: true,
             webSecurity: false,
             preload: path.join(__dirname, 'preload.js')
-        }
+        },
+        autoHideMenuBar: true,
+        frame: true
     });
 
     mainWindow.loadURL('http://localhost:3005');
@@ -175,6 +179,11 @@ function createWindow() {
 // 当 Electron 完成初始化时创建窗口
 app.whenReady().then(() => {
     createWindow();
+    
+    // 移除应用程序菜单栏
+    if (!isDev) {  // 在非开发模式下移除菜单栏
+        Menu.setApplicationMenu(null);
+    }
 
     // 注册全局的 refresh-page 处理器
     ipcMain.on('refresh-page', (event) => {
