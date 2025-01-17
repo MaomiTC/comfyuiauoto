@@ -8,6 +8,17 @@ let mainWindow;
 let comfyWindow;
 let pieMenuWindow = null;
 
+// 添加恢复窗口函数
+function restoreWindow(window) {
+    if (window) {
+        if (window.isMinimized()) {
+            window.restore();
+        }
+        window.show();
+        window.focus();
+    }
+}
+
 function createComfyWindow() {
     comfyWindow = new BrowserWindow({
         width: 1280,
@@ -53,12 +64,45 @@ function createPieMenu() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            webSecurity: false
+            webSecurity: false,
+            enableRemoteModule: true
         },
         icon: path.join(__dirname, 'public', 'image', 'logox.ico')
     });
 
     pieMenuWindow.loadFile('pieMenu.html');
+
+    pieMenuWindow.webContents.on('did-finish-load', () => {
+        if (isDev) {
+            pieMenuWindow.webContents.openDevTools();
+        }
+    });
+
+    ipcMain.on('refresh-page', () => {
+        console.log('Refresh command received');
+        try {
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            
+            if (!focusedWindow) {
+                if (comfyWindow && !comfyWindow.isDestroyed()) {
+                    console.log('Refreshing comfyWindow');
+                    comfyWindow.reload();
+                } else if (mainWindow && !mainWindow.isDestroyed()) {
+                    console.log('Refreshing mainWindow');
+                    mainWindow.reload();
+                }
+            } else {
+                console.log('Refreshing focused window');
+                focusedWindow.reload();
+            }
+
+            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+                pieMenuWindow.hide();
+            }
+        } catch (error) {
+            console.error('Error refreshing page:', error);
+        }
+    });
 
     pieMenuWindow.once('ready-to-show', () => {
         pieMenuWindow.show();
@@ -95,17 +139,25 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     }
 
-    // 处理页面导航
+    // 修改导航处理逻辑
     ipcMain.on('navigate', (event, url) => {
         if (url === 'http://localhost:8188') {
             if (comfyWindow && !comfyWindow.isDestroyed()) {
-                comfyWindow.focus();
+                restoreWindow(comfyWindow);
             } else {
                 createComfyWindow();
             }
+            // 隐藏饼菜单
+            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+                pieMenuWindow.hide();
+            }
         } else {
             mainWindow.loadURL(url);
-            mainWindow.focus();
+            restoreWindow(mainWindow);
+            // 隐藏饼菜单
+            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+                pieMenuWindow.hide();
+            }
         }
     });
 
@@ -124,12 +176,41 @@ function createWindow() {
 app.whenReady().then(() => {
     createWindow();
 
+    // 注册全局的 refresh-page 处理器
+    ipcMain.on('refresh-page', (event) => {
+        console.log('Refresh command received');
+        try {
+            const focusedWindow = BrowserWindow.getFocusedWindow();
+            
+            if (!focusedWindow) {
+                if (comfyWindow && !comfyWindow.isDestroyed()) {
+                    console.log('Refreshing comfyWindow');
+                    comfyWindow.reload();
+                } else if (mainWindow && !mainWindow.isDestroyed()) {
+                    console.log('Refreshing mainWindow');
+                    mainWindow.reload();
+                }
+            } else {
+                console.log('Refreshing focused window');
+                focusedWindow.reload();
+            }
+
+            // 隐藏饼菜单
+            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+                pieMenuWindow.hide();
+            }
+        } catch (error) {
+            console.error('Error refreshing page:', error);
+        }
+    });
+
     // 注册 Alt+W 快捷键
     globalShortcut.register('Alt+W', () => {
         try {
             if (pieMenuWindow && pieMenuWindow.isVisible()) {
                 pieMenuWindow.hide();
             } else {
+                // 如果所有窗口都最小化，先显示饼菜单
                 createPieMenu();
                 const mousePos = screen.getCursorScreenPoint();
                 pieMenuWindow.setPosition(mousePos.x - 150, mousePos.y - 150);
