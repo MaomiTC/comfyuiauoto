@@ -1,0 +1,78 @@
+{
+  "name": "autocmfy",
+  "version": "1.0.0",
+  "description": "ComfyUI Workflow Controller",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "nodemon --watch main.js --watch server.js --exec electron .",
+    "build": "node build.js && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "body-parser": "^1.19.0",
+    "electron-store": "^8.2.0",
+    "express": "^4.21.2",
+    "form-data": "^4.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^22.0.0",
+    "electron-builder": "^25.1.8",
+    "nodemon": "^2.0.15"
+  },
+  "build": {
+    "appId": "com.autocmfy.app",
+    "productName": "AUTOcmfy",
+    "directories": {
+      "output": "build"
+    },
+    "asar": false,
+    "files": [
+      "main.js",
+      "server.js",
+      "package.json",
+      "node_modules/**/*",
+      "public/**/*",
+      "preset/**/*",
+      "workflow/**/*",
+      "saved_images/**/*",
+      "temp/**/*",
+      "original_images/**/*",
+      "config.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "./public/image/logox.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "./public/image/logox.ico",
+      "uninstallerIcon": "./public/image/logox.ico",
+      "installerHeaderIcon": "./public/image/logox.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
+  }
+}

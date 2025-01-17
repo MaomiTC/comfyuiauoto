@@ -1,0 +1,13 @@
+{
+  "selectedParams": {
+    "3_cfg": true,
+    "3_scheduler": true,
+    "14_ckpt_name": true
+  },
+  "paramCustomNames": {},
+  "paramOrder": [
+    "3_scheduler",
+    "14_ckpt_name",
+    "3_cfg"
+  ]
+}

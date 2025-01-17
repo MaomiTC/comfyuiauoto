@@ -1,0 +1,23 @@
+{
+  "selectedParams": {
+    "3_cfg": true,
+    "4_ckpt_name": true,
+    "3_scheduler": true
+  },
+  "paramCustomNames": {},
+  "paramOrder": [
+    "3_seed",
+    "3_steps",
+    "3_cfg",
+    "3_sampler_name",
+    "3_scheduler",
+    "3_denoise",
+    "6_text",
+    "7_text",
+    "9_filename_prefix",
+    "10_image",
+    "10_upload",
+    "14_ckpt_name",
+    "15_prompt"
+  ]
+}
