@@ -42,7 +42,8 @@
       "saved_images/**/*",
       "temp/**/*",
       "original_images/**/*",
-      "config.json"
+      "config.json",
+      "phtoshopPython/**/*"
     ],
     "win": {
       "target": [
