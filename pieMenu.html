@@ -183,16 +183,8 @@
     const { ipcRenderer } = require('electron');
 
     document.getElementById('comfy').addEventListener('click', () => {
-      // 发送 F6 按键事件到主窗口
-      const f6Event = new KeyboardEvent('keydown', {
-        key: 'F6',
-        code: 'F6',
-        keyCode: 117,
-        which: 117,
-        bubbles: true,
-        cancelable: true
-      });
-      window.dispatchEvent(f6Event);
+      // 发送导航消息而不是 F6 事件
+      ipcRenderer.send('navigate', 'http://127.0.0.1:8188');
       
       // 隐藏饼菜单
       document.querySelector('.pie-menu').style.opacity = '0';
@@ -200,7 +192,12 @@
     });
 
     document.getElementById('vue').addEventListener('click', () => {
-      ipcRenderer.send('navigate', 'http://localhost:3003');
+      // 发送打开外部链接的消息
+      ipcRenderer.send('open-external-url', 'https://chat.deepseek.com/sign_in');
+      
+      // 隐藏饼菜单
+      document.querySelector('.pie-menu').style.opacity = '0';
+      setTimeout(() => window.close(), 300);
     });
 
     document.getElementById('node').addEventListener('click', () => {

@@ -110,28 +110,58 @@ function restoreWindow(window) {
     }
 }
 
-function createComfyWindow() {
-    comfyWindow = new BrowserWindow({
-        width: 1280,
-        height: 800,
-        show: false,  // 初始不显示
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            webSecurity: false
+// 在文件顶部添加检查函数
+async function isComfyUIRunning() {
+    try {
+        const response = await axios.get('http://127.0.0.1:8188/history');
+        return response.status === 200;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 修改 createComfyWindow 函数
+async function createComfyWindow() {
+    try {
+        // 先检查 ComfyUI 是否运行
+        const running = await isComfyUIRunning();
+        if (!running) {
+            showErrorDialog('连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行');
+            return null;
         }
-    });
 
-    comfyWindow.loadURL('http://127.0.0.1:8188').catch(error => {
-        console.error('Failed to load ComfyUI:', error);
-        showErrorDialog('连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行');
-    });
+        if (comfyWindow) {
+            try {
+                comfyWindow.close();
+            } catch (e) {
+                console.error('Error closing existing comfy window:', e);
+            }
+        }
 
-    comfyWindow.on('closed', () => {
-        comfyWindow = null;
-    });
+        comfyWindow = new BrowserWindow({
+            width: 1280,
+            height: 800,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                webSecurity: false
+            }
+        });
 
-    return comfyWindow;
+        await comfyWindow.loadURL('http://127.0.0.1:8188');
+        comfyWindow.show();
+
+        comfyWindow.on('closed', () => {
+            comfyWindow = null;
+        });
+
+        return comfyWindow;
+    } catch (error) {
+        console.error('Error creating ComfyUI window:', error);
+        showErrorDialog('创建 ComfyUI 窗口失败: ' + error.message);
+        return null;
+    }
 }
 
 function createPieMenu() {
@@ -229,24 +259,36 @@ function createWindow() {
     }
 
     // 修改导航处理逻辑
-    ipcMain.on('navigate', (event, url) => {
-        if (url === 'http://localhost:8188') {
-            if (comfyWindow && !comfyWindow.isDestroyed()) {
-                restoreWindow(comfyWindow);
+    ipcMain.on('navigate', async (event, url) => {
+        try {
+            if (url === 'http://127.0.0.1:8188') {
+                // 如果是导航到 ComfyUI，先检查服务是否运行
+                const running = await isComfyUIRunning();
+                if (!running) {
+                    showErrorDialog('连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行');
+                    return;
+                }
+
+                if (!comfyWindow) {
+                    await createComfyWindow();
+                } else if (!comfyWindow.isDestroyed()) {
+                    comfyWindow.loadURL(url);
+                    comfyWindow.show();
+                    comfyWindow.focus();
+                }
             } else {
-                createComfyWindow();
+                // 其他页面的导航
+                mainWindow.loadURL(url);
+                restoreWindow(mainWindow);
             }
+            
             // 隐藏饼菜单
             if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
                 pieMenuWindow.hide();
             }
-        } else {
-            mainWindow.loadURL(url);
-            restoreWindow(mainWindow);
-            // 隐藏饼菜单
-            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
-                pieMenuWindow.hide();
-            }
+        } catch (error) {
+            console.error('Navigation error:', error);
+            showErrorDialog('导航失败: ' + error.message);
         }
     });
 
@@ -486,5 +528,24 @@ ipcMain.handle('open-external-link', async (event, url) => {
     } catch (error) {
         console.error('打开外部链接失败:', error);
         return false;
+    }
+});
+
+// 添加处理外部链接的 IPC 监听器
+ipcMain.on('open-external-url', async (event, url) => {
+    try {
+        // 在主窗口中加载 URL
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            await mainWindow.loadURL(url);
+            restoreWindow(mainWindow);
+        }
+        
+        // 隐藏饼菜单
+        if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+            pieMenuWindow.hide();
+        }
+    } catch (error) {
+        console.error('Error opening external URL:', error);
+        showErrorDialog('打开链接失败: ' + error.message);
     }
 }); 
