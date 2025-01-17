@@ -242,23 +242,28 @@
       });
     });
 
-    // 添加刷新按钮点击事件
+    // 修改刷新按钮点击事件
     document.querySelector('.refresh-button').addEventListener('click', (e) => {
-      e.stopPropagation(); // 阻止事件冒泡
-      try {
-        // 发送刷新消息
-        ipcRenderer.send('refresh-page');
-        // 添加视觉反馈
-        const refreshButton = document.querySelector('.refresh-button');
-        refreshButton.style.transform = 'rotate(360deg)';
-        refreshButton.style.transition = 'transform 0.3s ease';
-        
-        // 隐藏菜单
-        document.querySelector('.pie-menu').style.opacity = '0';
-        setTimeout(() => window.close(), 300);
-      } catch (error) {
-        console.error('Error sending refresh command:', error);
-      }
+        e.stopPropagation(); // 阻止事件冒泡
+        try {
+            // 发送刷新消息
+            ipcRenderer.send('refresh-page');
+            
+            // 添加视觉反馈
+            const refreshButton = document.querySelector('.refresh-button');
+            refreshButton.style.transform = 'rotate(360deg)';
+            refreshButton.style.transition = 'transform 0.3s ease';
+            
+            // 隐藏菜单
+            setTimeout(() => {
+                document.querySelector('.pie-menu').style.opacity = '0';
+                setTimeout(() => {
+                    ipcRenderer.send('hide-pie-menu');
+                }, 300);
+            }, 100);
+        } catch (error) {
+            console.error('Error sending refresh command:', error);
+        }
     });
   </script>
 </body>

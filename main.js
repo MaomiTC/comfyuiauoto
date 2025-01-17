@@ -416,25 +416,34 @@ app.whenReady().then(async () => {
             try {
                 const focusedWindow = BrowserWindow.getFocusedWindow();
                 
-                if (!focusedWindow) {
-                    if (comfyWindow && !comfyWindow.isDestroyed()) {
-                        console.log('Refreshing comfyWindow');
-                        comfyWindow.reload();
-                    } else if (mainWindow && !mainWindow.isDestroyed()) {
-                        console.log('Refreshing mainWindow');
-                        mainWindow.reload();
-                    }
-                } else {
-                    console.log('Refreshing focused window');
-                    focusedWindow.reload();
-                }
-
-                // 隐藏饼菜单
+                // 先隐藏饼菜单
                 if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
                     pieMenuWindow.hide();
                 }
+
+                // 刷新活动窗口
+                if (focusedWindow && !focusedWindow.isDestroyed()) {
+                    console.log('Refreshing focused window');
+                    focusedWindow.reload();
+                } else {
+                    // 如果没有焦点窗口，则按优先级刷新
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        console.log('Refreshing mainWindow');
+                        mainWindow.reload();
+                    } else if (comfyWindow && !comfyWindow.isDestroyed()) {
+                        console.log('Refreshing comfyWindow');
+                        comfyWindow.reload();
+                    }
+                }
             } catch (error) {
                 console.error('Error refreshing page:', error);
+            }
+        });
+
+        // 添加隐藏饼菜单的处理器
+        ipcMain.on('hide-pie-menu', () => {
+            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+                pieMenuWindow.hide();
             }
         });
 
