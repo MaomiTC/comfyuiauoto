@@ -66,14 +66,14 @@
 
         /* 修改 ComfyUI iframe 的基础样式 */
         .comfyui-frame {
-            width: 0;
+            width: 50%;
             height: 100vh;
             border: none;
             background: var(--bg-dark);
             opacity: 0;
             transform: translateX(-50%);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            flex-shrink: 0;
+            display: none;
         }
 
         /* 分屏模式下的 iframe 样式 */
@@ -81,6 +81,7 @@
             width: 50%;
             opacity: 1;
             transform: translateX(0);
+            display: block;
         }
 
         /* 修改主面板样式 */
@@ -99,7 +100,8 @@
         /* 分屏模式下主面板样式 */
         .container.split-screen .main-panel {
             width: 50%;
-            flex: none;
+            padding: 0;
+            margin-left: 0;
         }
 
         /* 修改控制面板和历史面板在分屏模式下的样式 */
@@ -2570,7 +2572,7 @@
         <div :class="['container', { 'split-screen': splitScreenMode }]">
             <!-- ComfyUI iframe -->
             <iframe
-                v-show="splitScreenMode"
+                :style="{ display: splitScreenMode ? 'block' : 'none' }"
                 class="comfyui-frame"
                 src="http://127.0.0.1:8188"
                 frameborder="0"
