@@ -105,7 +105,12 @@
         /* 修改控制面板和历史面板在分屏模式下的样式 */
         .container.split-screen .control-panel,
         .container.split-screen .history-panel {
-            display: none;
+            transform: translateX(-100%);
+            opacity: 0;
+            width: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
             pointer-events: none;
         }
 
@@ -129,7 +134,7 @@
             padding: 0;
             margin: 0;
             overflow: hidden;
-            pointer-events: none;  /* 禁用交互 */
+            pointer-events: none;
         }
 
         .latest-image-container {
@@ -150,7 +155,7 @@
         }
 
         .history-panel {
-            width: 300px;
+            width: 400px;
             height: 100vh;
             background: var(--bg-darker);
             padding: 10px;
@@ -158,9 +163,7 @@
             flex-direction: column;
             gap: 10px;
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            transform-origin: center;
-            opacity: 1;
-            width: 400px; /* 设置固定宽度 */
+            transform-origin: right center;
         }
 
         .history-panel.hidden {
@@ -170,6 +173,7 @@
             padding: 0;
             margin: 0;
             overflow: hidden;
+            pointer-events: none;
         }
 
         .history-images-container {
@@ -2563,16 +2567,17 @@
 </head>
 <body>
     <div id="app">
-        <div class="container" :class="{ 'split-screen': splitScreenMode }">
-            <!-- ComfyUI iframe - 只在分屏模式显示 -->
-            <iframe 
+        <div :class="['container', { 'split-screen': splitScreenMode }]">
+            <!-- ComfyUI iframe -->
+            <iframe
+                v-show="splitScreenMode"
                 class="comfyui-frame"
                 src="http://127.0.0.1:8188"
                 frameborder="0"
             ></iframe>
 
-            <!-- 现有的面板 -->
-            <div class="control-panel" :class="{ 'hidden': !showSidePanels }">
+            <!-- 控制面板 -->
+            <div v-show="showSidePanels" class="control-panel" :class="{ 'hidden': !showSidePanels }">
                 <div class="workflow-selector">
                     <el-button 
                         @click="showWorkflowDialog = true"
@@ -2997,8 +3002,8 @@
                 </div>
             </div>
 
-            <!-- Right history panel -->
-            <div class="history-panel" :class="{ 'hidden': !showSidePanels }">
+            <!-- 历史面板 -->
+            <div v-show="showSidePanels" class="history-panel" :class="{ 'hidden': !showSidePanels }">
                 <div class="logo-container">
                     <div class="logo-text">本软件开源免费，软件更新及最新配套工作流，
 请关注小红书、哔哩哔哩：猫咪老师Reimagined</div>
@@ -4461,6 +4466,17 @@
                             window.dispatchEvent(new Event('resize'));
                         });
                     }
+                    else if (e.key === 'F6') {
+                        e.preventDefault();
+                        // 切换分屏模式
+                        this.splitScreenMode = !this.splitScreenMode;
+                        this.showSidePanels = !this.splitScreenMode;
+                        
+                        // 强制重新计算布局
+                        this.$nextTick(() => {
+                            window.dispatchEvent(new Event('resize'));
+                        });
+                    }
                 };
                 
                 // 添加事件监听器
@@ -4475,6 +4491,17 @@
                             duration: 0
                         });
                     }
+                });
+
+                // 监听分屏模式切换
+                window.electron.onSplitScreenToggle((isEnabled) => {
+                    this.splitScreenMode = isEnabled;
+                    this.showSidePanels = !isEnabled;
+                    
+                    // 强制重新计算布局
+                    this.$nextTick(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    });
                 });
             },
             beforeUnmount() {

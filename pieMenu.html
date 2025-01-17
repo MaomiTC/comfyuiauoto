@@ -183,7 +183,20 @@
     const { ipcRenderer } = require('electron');
 
     document.getElementById('comfy').addEventListener('click', () => {
-      ipcRenderer.send('navigate', 'http://localhost:8188');
+      // 发送 F6 按键事件到主窗口
+      const f6Event = new KeyboardEvent('keydown', {
+        key: 'F6',
+        code: 'F6',
+        keyCode: 117,
+        which: 117,
+        bubbles: true,
+        cancelable: true
+      });
+      window.dispatchEvent(f6Event);
+      
+      // 隐藏饼菜单
+      document.querySelector('.pie-menu').style.opacity = '0';
+      setTimeout(() => window.close(), 300);
     });
 
     document.getElementById('vue').addEventListener('click', () => {

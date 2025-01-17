@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('electron', {
                 return ipcRenderer.invoke(channel, ...args);
             }
             return Promise.reject(new Error('Invalid channel'));
+        },
+        send: (channel, ...args) => {
+            const validChannels = ['toggle-split-screen', 'hide-pie-menu', 'refresh-page'];
+            if (validChannels.includes(channel)) {
+                ipcRenderer.send(channel, ...args);
+            }
         }
     },
     closeErrorWindow: () => {

@@ -114,27 +114,18 @@ function createComfyWindow() {
     comfyWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        minWidth: 800,
-        minHeight: 600,
-        icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
+        show: false,  // 初始不显示
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: false,
-            preload: path.join(__dirname, 'preload.js')
-        },
-        autoHideMenuBar: true,
-        frame: true
+            webSecurity: false
+        }
     });
 
     comfyWindow.loadURL('http://127.0.0.1:8188').catch(error => {
         console.error('Failed to load ComfyUI:', error);
         showErrorDialog('连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行');
     });
-
-    if (isDev) {
-        comfyWindow.webContents.openDevTools();
-    }
 
     comfyWindow.on('closed', () => {
         comfyWindow = null;
