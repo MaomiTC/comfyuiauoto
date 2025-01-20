@@ -1,5 +1,5 @@
 {
-  "name": "autocmfy",
+  "name": "comfyui-electron-app",
   "version": "1.0.0",
   "description": "ComfyUI Workflow Controller",
   "main": "main.js",
@@ -10,39 +10,42 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "author": "Your Name",
-  "license": "MIT",
+  "license": "ISC",
   "dependencies": {
     "axios": "^0.24.0",
     "body-parser": "^1.19.0",
     "electron-store": "^8.2.0",
     "express": "^4.21.2",
     "form-data": "^4.0.1",
+    "vue-circle-menu": "^1.1.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^22.0.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^33.2.1",
+    "electron-builder": "^24.9.1",
     "nodemon": "^2.0.15"
   },
   "build": {
-    "appId": "com.autocmfy.app",
-    "productName": "AUTOcmfy",
+    "appId": "com.comfyui.app",
+    "productName": "ComfyUI-Electron",
+    "asar": false,
     "directories": {
       "output": "build"
     },
-    "asar": false,
     "files": [
       "main.js",
       "server.js",
+      "preload.js",
+      "pieMenu.html",
       "package.json",
       "node_modules/**/*",
       "public/**/*",
+      "assets/**/*",
       "preset/**/*",
       "workflow/**/*",
-      "saved_images/**/*",
-      "temp/**/*",
-      "original_images/**/*",
-      "config.json"
+      "phtoshopPython/**/*",
+      "!**/electron-builder.{yaml,yml,json,json5,toml}",
+      "!**/{.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,.DS_Store,thumbs.db}"
     ],
     "win": {
       "target": [

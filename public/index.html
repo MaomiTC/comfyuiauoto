@@ -4461,24 +4461,6 @@
                             window.dispatchEvent(new Event('resize'));
                         });
                     }
-                    else if (e.key === 'F6') {
-                        e.preventDefault();
-                        // 简化 F6 模式切换逻辑
-                        if (this.splitScreenMode) {
-                            // 从分屏模式切换回正常模式
-                            this.splitScreenMode = false;
-                            this.showSidePanels = true;
-                        } else {
-                            // 切换到分屏模式
-                            this.splitScreenMode = true;
-                            this.showSidePanels = false;
-                        }
-
-                        // 强制重新计算布局
-                        this.$nextTick(() => {
-                            window.dispatchEvent(new Event('resize'));
-                        });
-                    }
                 };
                 
                 // 添加事件监听器

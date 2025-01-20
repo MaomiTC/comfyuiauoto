@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1c1c1c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .loading-container {
+            text-align: center;
+        }
+
+        .loading {
+            width: 20px;
+            height: 20px;
+            transform: rotate(45deg);
+            animation: loading-spin 4s cubic-bezier(0.165, 0.840, 0.440, 1.000) infinite;
+            margin: 0 auto 20px;
+        }
+
+        .loading i {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            border-radius: 3px;
+            position: absolute;
+        }
+
+        .loading i:nth-child(1) {
+            background: #ef5350;
+            transform: translate(0, 0);
+            animation: loading-square1 4s ease-in-out infinite;
+        }
+
+        .loading i:nth-child(2) {
+            background: #42a5f5;
+            transform: rotate(90deg) translate(0, 0);
+            animation: loading-square2 4s ease-in-out infinite;
+        }
+
+        .loading i:nth-child(3) {
+            background: #ffca28;
+            transform: rotate(180deg) translate(0, 0);
+            animation: loading-square3 4s ease-in-out infinite;
+        }
+
+        .loading i:nth-child(4) {
+            background: #5c6bc0;
+            transform: rotate(270deg) translate(0, 0);
+            animation: loading-square4 4s ease-in-out infinite;
+        }
+
+        .loading-text {
+            color: #ffffff;
+            font-size: 14px;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+
+        @keyframes loading-spin {
+            25% { transform: rotate(135deg); }
+            50% { transform: rotate(225deg); }
+            75% { transform: rotate(315deg); }
+            100% { transform: rotate(405deg); }
+        }
+
+        @keyframes loading-square1 {
+            17.5%,25%,42.5%,50%,67.5%,75%,92.5%,100% { transform: translate(0, 0); }
+            12.5%,37.5%,62.5%,87.5% { transform: translate(0, 20px); }
+        }
+
+        @keyframes loading-square2 {
+            17.5%,25%,42.5%,50%,67.5%,75%,92.5%,100% { transform: rotate(90deg) translate(0, 0); }
+            12.5%,37.5%,62.5%,87.5% { transform: rotate(90deg) translate(0, 20px); }
+        }
+
+        @keyframes loading-square3 {
+            17.5%,25%,42.5%,50%,67.5%,75%,92.5%,100% { transform: rotate(180deg) translate(0, 0); }
+            12.5%,37.5%,62.5%,87.5% { transform: rotate(180deg) translate(0, 20px); }
+        }
+
+        @keyframes loading-square4 {
+            17.5%,25%,42.5%,50%,67.5%,75%,92.5%,100% { transform: rotate(270deg) translate(0, 0); }
+            12.5%,37.5%,62.5%,87.5% { transform: rotate(270deg) translate(0, 20px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="loading">
+            <i></i>
+            <i></i>
+            <i></i>
+            <i></i>
+        </div>
+        <div class="loading-text">正在启动 ComfyUI...</div>
+    </div>
+
+    <script>
+        // 监听来自主进程的消息
+        window.electron.onLoadingComplete(() => {
+            window.close();
+        });
+    </script>
+</body>
+</html> 
