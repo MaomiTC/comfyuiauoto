@@ -187,7 +187,10 @@
     });
 
     document.getElementById('vue').addEventListener('click', () => {
-      ipcRenderer.send('navigate', 'http://localhost:3003');
+      ipcRenderer.send('navigate', 'https://chat.deepseek.com/sign_in');
+      
+      document.querySelector('.pie-menu').style.opacity = '0';
+      setTimeout(() => window.close(), 300);
     });
 
     document.getElementById('node').addEventListener('click', () => {

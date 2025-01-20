@@ -239,23 +239,35 @@ function createWindow() {
 
     // 修改导航处理逻辑
     ipcMain.on('navigate', (event, url) => {
-        if (url === 'http://localhost:8188') {
-            if (comfyWindow && !comfyWindow.isDestroyed()) {
-                restoreWindow(comfyWindow);
+        try {
+            if (url === 'https://chat.deepseek.com/sign_in') {
+                // 在主窗口加载 DeepSeek
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.loadURL(url);
+                    restoreWindow(mainWindow);
+                }
+            } else if (url === 'http://127.0.0.1:8188') {
+                // 处理 ComfyUI 导航
+                if (!comfyWindow) {
+                    createComfyWindow();
+                } else if (!comfyWindow.isDestroyed()) {
+                    comfyWindow.loadURL(url);
+                    comfyWindow.show();
+                    comfyWindow.focus();
+                }
             } else {
-                createComfyWindow();
+                // 其他导航
+                mainWindow.loadURL(url);
+                restoreWindow(mainWindow);
             }
+            
             // 隐藏饼菜单
             if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
                 pieMenuWindow.hide();
             }
-        } else {
-            mainWindow.loadURL(url);
-            restoreWindow(mainWindow);
-            // 隐藏饼菜单
-            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
-                pieMenuWindow.hide();
-            }
+        } catch (error) {
+            console.error('Navigation error:', error);
+            showErrorDialog('导航失败: ' + error.message);
         }
     });
 
