@@ -8,7 +8,6 @@ const axios = require('axios');
 require('./server.js');
 
 let mainWindow;
-let comfyWindow;
 let pieMenuWindow = null;
 let errorWindow = null;
 let loadingWindow = null;
@@ -152,48 +151,6 @@ async function checkComfyUIConnection() {
     }
 }
 
-// 修改 createComfyWindow 函数
-function createComfyWindow() {
-    try {
-        const comfyPort = global.comfyUIPort || 8189;  // 默认使用 8189
-        console.log(`Creating ComfyUI window with port ${comfyPort}`);
-
-        comfyWindow = new BrowserWindow({
-            width: 1280,
-            height: 800,
-            minWidth: 800,
-            minHeight: 600,
-            icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                webSecurity: false,
-                preload: path.join(__dirname, 'preload.js')
-            },
-            autoHideMenuBar: true,
-            frame: true
-        });
-
-        const url = `http://127.0.0.1:${comfyPort}`;
-        console.log(`Loading ComfyUI URL: ${url}`);
-        
-        comfyWindow.loadURL(url).catch(error => {
-            console.error('Failed to load ComfyUI:', error);
-            showErrorDialog(`连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行\n尝试端口: ${comfyPort}`);
-        });
-
-        comfyWindow.on('closed', () => {
-            comfyWindow = null;
-        });
-
-        return comfyWindow;
-    } catch (error) {
-        console.error('Error creating ComfyUI window:', error);
-        showErrorDialog('创建 ComfyUI 窗口失败: ' + error.message);
-        return null;
-    }
-}
-
 function createPieMenu() {
     if (pieMenuWindow) {
         pieMenuWindow.show();
@@ -231,10 +188,7 @@ function createPieMenu() {
             const focusedWindow = BrowserWindow.getFocusedWindow();
             
             if (!focusedWindow) {
-                if (comfyWindow && !comfyWindow.isDestroyed()) {
-                    console.log('Refreshing comfyWindow');
-                    comfyWindow.reload();
-                } else if (mainWindow && !mainWindow.isDestroyed()) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
                     console.log('Refreshing mainWindow');
                     mainWindow.reload();
                 }
@@ -275,17 +229,13 @@ ipcMain.on('navigate', (event, url) => {
                 restoreWindow(mainWindow);
             }
         } else if (url === 'comfyui') {
-            // 处理 ComfyUI 导航
-            const comfyPort = global.comfyUIPort || 8189;  // 默认使用 8189
-            console.log(`Navigating to ComfyUI on port ${comfyPort}`);
-            
-            if (!comfyWindow) {
-                createComfyWindow();
-            } else if (!comfyWindow.isDestroyed()) {
-                const url = `http://127.0.0.1:${comfyPort}`;
-                comfyWindow.loadURL(url);
-                comfyWindow.show();
-                comfyWindow.focus();
+            // 在主窗口加载 ComfyUI
+            const comfyPort = global.comfyUIPort || 8189;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                const comfyUrl = `http://127.0.0.1:${comfyPort}`;
+                console.log(`Loading ComfyUI in main window: ${comfyUrl}`);
+                mainWindow.loadURL(comfyUrl);
+                restoreWindow(mainWindow);
             }
         } else {
             // 其他导航
@@ -430,21 +380,10 @@ function createWindow() {
     }
 
     mainWindow.on('closed', () => {
-        if (comfyWindow && !comfyWindow.isDestroyed()) {
-            comfyWindow.close();
-        }
         if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
             pieMenuWindow.close();
         }
         mainWindow = null;
-    });
-
-    // 监听窗口大小变化
-    mainWindow.on('resize', () => {
-        const [width, height] = mainWindow.getSize();
-        if (comfyWindow && !comfyWindow.isDestroyed()) {
-            comfyWindow.setSize(width, height);
-        }
     });
 
     return mainWindow;
@@ -498,9 +437,6 @@ app.whenReady().then(async () => {
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         console.log('Refreshing mainWindow');
                         mainWindow.reload();
-                    } else if (comfyWindow && !comfyWindow.isDestroyed()) {
-                        console.log('Refreshing comfyWindow');
-                        comfyWindow.reload();
                     }
                 }
             } catch (error) {

@@ -183,7 +183,12 @@
     const { ipcRenderer } = require('electron');
 
     document.getElementById('comfy').addEventListener('click', () => {
+      // 发送导航消息到主进程
       ipcRenderer.send('navigate', 'comfyui');
+      
+      // 添加淡出效果
+      document.querySelector('.pie-menu').style.opacity = '0';
+      setTimeout(() => window.close(), 300);
     });
 
     document.getElementById('vue').addEventListener('click', () => {
