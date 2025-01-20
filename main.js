@@ -110,37 +110,88 @@ function restoreWindow(window) {
     }
 }
 
-function createComfyWindow() {
-    comfyWindow = new BrowserWindow({
-        width: 1280,
-        height: 800,
-        minWidth: 800,
-        minHeight: 600,
-        icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            webSecurity: false,
-            preload: path.join(__dirname, 'preload.js')
-        },
-        autoHideMenuBar: true,
-        frame: true
-    });
-
-    comfyWindow.loadURL('http://127.0.0.1:8188').catch(error => {
-        console.error('Failed to load ComfyUI:', error);
-        showErrorDialog('连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行');
-    });
-
-    if (isDev) {
-        comfyWindow.webContents.openDevTools();
+// 修改 ComfyUI 端口检测函数
+async function checkComfyUIPort(port) {
+    try {
+        console.log(`Checking ComfyUI on port ${port}...`);
+        const response = await axios.get(`http://127.0.0.1:${port}/history`, {
+            timeout: 2000  // 添加超时设置
+        });
+        console.log(`Port ${port} check result:`, response.status === 200);
+        return response.status === 200;
+    } catch (error) {
+        console.log(`Port ${port} is not available:`, error.message);
+        return false;
     }
+}
 
-    comfyWindow.on('closed', () => {
-        comfyWindow = null;
-    });
+// 修改 ComfyUI 连接检查函数
+async function checkComfyUIConnection() {
+    try {
+        // 先检查 8188 端口
+        const is8188Available = await checkComfyUIPort(8188);
+        if (is8188Available) {
+            console.log('ComfyUI available on port 8188');
+            global.comfyUIPort = 8188;
+            return true;
+        }
+        
+        // 如果 8188 不可用，检查 8189 端口
+        const is8189Available = await checkComfyUIPort(8189);
+        if (is8189Available) {
+            console.log('ComfyUI available on port 8189');
+            global.comfyUIPort = 8189;
+            return true;
+        }
+        
+        console.log('No ComfyUI instance found on ports 8188 or 8189');
+        return false;
+    } catch (error) {
+        console.error('Error checking ComfyUI connection:', error);
+        return false;
+    }
+}
 
-    return comfyWindow;
+// 修改 createComfyWindow 函数
+function createComfyWindow() {
+    try {
+        const comfyPort = global.comfyUIPort || 8189;  // 默认使用 8189
+        console.log(`Creating ComfyUI window with port ${comfyPort}`);
+
+        comfyWindow = new BrowserWindow({
+            width: 1280,
+            height: 800,
+            minWidth: 800,
+            minHeight: 600,
+            icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                webSecurity: false,
+                preload: path.join(__dirname, 'preload.js')
+            },
+            autoHideMenuBar: true,
+            frame: true
+        });
+
+        const url = `http://127.0.0.1:${comfyPort}`;
+        console.log(`Loading ComfyUI URL: ${url}`);
+        
+        comfyWindow.loadURL(url).catch(error => {
+            console.error('Failed to load ComfyUI:', error);
+            showErrorDialog(`连接失败: ComfyUI 服务未启动或无法访问\n请确保 ComfyUI 正在运行\n尝试端口: ${comfyPort}`);
+        });
+
+        comfyWindow.on('closed', () => {
+            comfyWindow = null;
+        });
+
+        return comfyWindow;
+    } catch (error) {
+        console.error('Error creating ComfyUI window:', error);
+        showErrorDialog('创建 ComfyUI 窗口失败: ' + error.message);
+        return null;
+    }
 }
 
 function createPieMenu() {
@@ -214,73 +265,43 @@ function createPieMenu() {
     });
 }
 
-function createWindow() {
-    mainWindow = new BrowserWindow({
-        width: 1280,
-        height: 800,
-        minWidth: 800,
-        minHeight: 600,
-        icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            webSecurity: false,
-            preload: path.join(__dirname, 'preload.js')
-        },
-        autoHideMenuBar: true,
-        frame: true
-    });
-
-    mainWindow.loadURL('http://localhost:3005');
-
-    if (isDev) {
-        mainWindow.webContents.openDevTools();
-    }
-
-    // 修改导航处理逻辑
-    ipcMain.on('navigate', (event, url) => {
-        try {
-            if (url === 'https://chat.deepseek.com/sign_in') {
-                // 在主窗口加载 DeepSeek
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.loadURL(url);
-                    restoreWindow(mainWindow);
-                }
-            } else if (url === 'http://127.0.0.1:8188') {
-                // 处理 ComfyUI 导航
-                if (!comfyWindow) {
-                    createComfyWindow();
-                } else if (!comfyWindow.isDestroyed()) {
-                    comfyWindow.loadURL(url);
-                    comfyWindow.show();
-                    comfyWindow.focus();
-                }
-            } else {
-                // 其他导航
+// 修改导航处理逻辑
+ipcMain.on('navigate', (event, url) => {
+    try {
+        if (url === 'https://chat.deepseek.com/sign_in') {
+            // 在主窗口加载 DeepSeek
+            if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.loadURL(url);
                 restoreWindow(mainWindow);
             }
+        } else if (url === 'comfyui') {
+            // 处理 ComfyUI 导航
+            const comfyPort = global.comfyUIPort || 8189;  // 默认使用 8189
+            console.log(`Navigating to ComfyUI on port ${comfyPort}`);
             
-            // 隐藏饼菜单
-            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
-                pieMenuWindow.hide();
+            if (!comfyWindow) {
+                createComfyWindow();
+            } else if (!comfyWindow.isDestroyed()) {
+                const url = `http://127.0.0.1:${comfyPort}`;
+                comfyWindow.loadURL(url);
+                comfyWindow.show();
+                comfyWindow.focus();
             }
-        } catch (error) {
-            console.error('Navigation error:', error);
-            showErrorDialog('导航失败: ' + error.message);
+        } else {
+            // 其他导航
+            mainWindow.loadURL(url);
+            restoreWindow(mainWindow);
         }
-    });
-
-    mainWindow.on('closed', () => {
-        if (comfyWindow && !comfyWindow.isDestroyed()) {
-            comfyWindow.close();
-        }
+        
+        // 隐藏饼菜单
         if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
-            pieMenuWindow.close();
+            pieMenuWindow.hide();
         }
-        mainWindow = null;
-    });
-}
+    } catch (error) {
+        console.error('Navigation error:', error);
+        showErrorDialog('导航失败: ' + error.message);
+    }
+});
 
 function showErrorWindow(errorMessage) {
     if (errorWindow) {
@@ -318,16 +339,6 @@ ipcMain.on('close-error-window', () => {
         errorWindow.close();
     }
 });
-
-// 检查 ComfyUI 是否运行的函数
-async function checkComfyUIConnection() {
-    try {
-        await axios.get('http://127.0.0.1:8188/history');
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
 
 // 显示错误对话框
 function showErrorDialog(message) {
@@ -392,6 +403,51 @@ function closeLoadingWindow() {
             }
         }
     }
+}
+
+// 添加 createWindow 函数
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1280,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: false,
+            preload: path.join(__dirname, 'preload.js')
+        },
+        autoHideMenuBar: true,
+        frame: true
+    });
+
+    mainWindow.loadURL('http://localhost:3005');
+
+    if (isDev) {
+        mainWindow.webContents.openDevTools();
+    }
+
+    mainWindow.on('closed', () => {
+        if (comfyWindow && !comfyWindow.isDestroyed()) {
+            comfyWindow.close();
+        }
+        if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
+            pieMenuWindow.close();
+        }
+        mainWindow = null;
+    });
+
+    // 监听窗口大小变化
+    mainWindow.on('resize', () => {
+        const [width, height] = mainWindow.getSize();
+        if (comfyWindow && !comfyWindow.isDestroyed()) {
+            comfyWindow.setSize(width, height);
+        }
+    });
+
+    return mainWindow;
 }
 
 // 当 Electron 完成初始化时创建窗口

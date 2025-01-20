@@ -183,7 +183,7 @@
     const { ipcRenderer } = require('electron');
 
     document.getElementById('comfy').addEventListener('click', () => {
-      ipcRenderer.send('navigate', 'http://localhost:8188');
+      ipcRenderer.send('navigate', 'comfyui');
     });
 
     document.getElementById('vue').addEventListener('click', () => {

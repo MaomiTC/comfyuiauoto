@@ -1,3 +1,8 @@
 {
-  "comfyuiPath": "C:\\Users\\Administrator\\Desktop\\ComfyUI_HunYuanVideoX\\ComfyUI_windows_0.3\\ComfyUI"
+  "comfyuiPath": "C:\\Users\\Administrator\\Desktop\\ComfyUI_HunYuanVideoX\\ComfyUI_windows_0.3\\ComfyUI",
+  "lastWorkflow": "",
+  "settings": {
+    "theme": "light",
+    "language": "en"
+  }
 }

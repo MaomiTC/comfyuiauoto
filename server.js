@@ -11,6 +11,102 @@ const app = express();
 const httpPort = 3005;
 const wsPort = 3001;  // WebSocket 使用不同的端口
 
+// 获取 ComfyUI 路径的函数
+function getComfyUIPath() {
+    try {
+        // 首先尝试从配置文件读取
+        const configPath = path.join(__dirname, 'config.json');
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (config.comfyuiPath) {
+                // 检查配置的路径是否存在
+                const configuredPath = config.comfyuiPath;
+                console.log('Checking configured path:', configuredPath);
+                if (fs.existsSync(configuredPath)) {
+                    const mainPyPath = path.join(configuredPath, 'main.py');
+                    if (fs.existsSync(mainPyPath)) {
+                        console.log('Using configured ComfyUI path:', configuredPath);
+                        return configuredPath;
+                    }
+                }
+            }
+        }
+
+        // 如果配置文件中的路径无效，尝试常见的安装位置
+        const possiblePaths = [
+            path.join(process.env.USERPROFILE || '', 'Desktop', 'ComfyUI_windows_portable', 'ComfyUI'),
+            path.join(process.env.USERPROFILE || '', 'Desktop', 'ComfyUI'),
+            path.join(process.env.USERPROFILE || '', 'Desktop', 'ComfyUI_windows_0.3', 'ComfyUI'),
+            path.join(process.env.USERPROFILE || '', 'Desktop', 'ComfyUI_HunYuanVideoX', 'ComfyUI_windows_0.3', 'ComfyUI'),
+            'C:\\ComfyUI',
+            path.join(__dirname, '..', 'ComfyUI')
+        ];
+
+        for (const possiblePath of possiblePaths) {
+            console.log('Checking possible ComfyUI path:', possiblePath);
+            const mainPyPath = path.join(possiblePath, 'main.py');
+            if (fs.existsSync(mainPyPath)) {
+                console.log('Found valid ComfyUI path:', possiblePath);
+                
+                // 更新配置文件
+                try {
+                    const config = fs.existsSync(configPath) 
+                        ? JSON.parse(fs.readFileSync(configPath, 'utf8'))
+                        : {};
+                    
+                    config.comfyuiPath = possiblePath;
+                    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+                    console.log('Updated config file with new path');
+                } catch (e) {
+                    console.warn('Failed to update config file:', e);
+                }
+                
+                return possiblePath;
+            }
+        }
+
+        // 如果找不到有效的路径，抛出更详细的错误
+        const errorMessage = `No valid ComfyUI installation found. Please ensure ComfyUI is installed and update the path in config.json. Checked paths:\n${possiblePaths.join('\n')}`;
+        throw new Error(errorMessage);
+    } catch (error) {
+        console.error('Error getting ComfyUI path:', error);
+        throw error;
+    }
+}
+
+// 修改全局变量的初始化
+let comfyuiPath;
+try {
+    comfyuiPath = getComfyUIPath();
+    console.log('Successfully initialized ComfyUI path:', comfyuiPath);
+} catch (error) {
+    console.error('Failed to initialize ComfyUI path:', error);
+    // 不要在这里退出进程，让应用继续运行并显示错误
+    comfyuiPath = null;
+}
+
+// 导出 getComfyUIPath 函数
+module.exports = {
+    getComfyUIPath: () => {
+        if (!comfyuiPath) {
+            throw new Error('ComfyUI path is not properly configured. Please check your config.json file.');
+        }
+        return comfyuiPath;
+    }
+};
+
+// 添加错误处理函数
+function handleComfyUIPathError() {
+    const errorMessage = 'ComfyUI 路径未正确配置，请检查 config.json 文件';
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+}
+
+// 在使用路径时添加错误检查
+if (!comfyuiPath) {
+    handleComfyUIPathError();
+}
+
 // 设置网站图标
 app.get('/favicon.ico', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'image', 'icon.ico'));
@@ -38,83 +134,147 @@ const clients = new Set();
 let latestImageData = null;
 let latestPrompt = '';
 
-// 添加新的WebSocket连接来监听ComfyUI的状态
+// 在文件开头添加 ComfyUI 端口检测函数
+async function checkComfyUIPort(port) {
+    try {
+        console.log(`正在检查端口 ${port} 的 ComfyUI...`);
+        const response = await axios.get(`http://127.0.0.1:${port}/history`, {
+            timeout: 5000
+        });
+        console.log(`端口 ${port} 检查结果:`, response.status === 200);
+        return response.status === 200;
+    } catch (error) {
+        console.log(`端口 ${port} 不可用:`, error.message);
+        return false;
+    }
+}
+
+// 获取可用的 ComfyUI 端口
+async function getAvailableComfyUIPort() {
+    console.log('开始检查可用的 ComfyUI 端口...');
+    
+    // 先检查 8188 端口
+    const is8188Available = await checkComfyUIPort(8188);
+    if (is8188Available) {
+        console.log('将使用端口 8188');
+        return 8188;
+    }
+    
+    // 如果 8188 不可用，检查 8189 端口
+    const is8189Available = await checkComfyUIPort(8189);
+    if (is8189Available) {
+        console.log('将使用端口 8189');
+        return 8189;
+    }
+    
+    console.log('没有找到可用的 ComfyUI 端口');
+    return null;
+}
+
+// 修改 WebSocket 连接部分
 let comfyWs = null;
+let comfyPort = null;
 
-// 在文件开头添加配置文件读取
-let comfyuiPath;
-try {
-    const configPath = path.join(__dirname, 'config.json');
-    if (fs.existsSync(configPath)) {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        comfyuiPath = config.comfyuiPath;
-        // 如果配置文件中有路径，立即设置为环境变量
-        if (comfyuiPath) {
-            process.env.COMFYUI_DIR = comfyuiPath;
-            console.log('已从配置文件加载 ComfyUI 路径:', comfyuiPath);
+async function connectToComfyUI() {
+    try {
+        // 获取可用端口
+        comfyPort = await getAvailableComfyUIPort();
+        if (!comfyPort) {
+            console.error('No available ComfyUI port found');
+            return;
         }
-    }
-} catch (error) {
-    console.error('读取配置文件失败:', error);
-}
 
-// 获取 ComfyUI 路径的辅助函数
-const getComfyUIPath = () => {
-    // 优先使用配置文件中的路径
-    if (comfyuiPath && fs.existsSync(comfyuiPath)) {
-        console.log('Using configured ComfyUI path:', comfyuiPath);
-        return comfyuiPath;
-    }
-    
-    // 使用默认路径
-    const defaultPath = path.join(__dirname, '..', 'ComfyUI');
-    console.log('Using default ComfyUI path:', defaultPath);
-    return defaultPath;
-};
+        console.log(`Connecting to ComfyUI on port ${comfyPort}`);
+        comfyWs = new WebSocket(`ws://127.0.0.1:${comfyPort}/ws`);
 
-function connectComfyWebSocket() {
-    comfyWs = new WebSocket('ws://127.0.0.1:8188/ws');
-    
-    comfyWs.on('open', () => {
-        console.log('已连接到ComfyUI WebSocket');
-        // 广播连接成功消息
-        clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'connection', status: 'connected' }));
+        comfyWs.on('open', () => {
+            console.log(`Connected to ComfyUI WebSocket on port ${comfyPort}`);
+        });
+
+        comfyWs.on('error', (error) => {
+            console.error(`ComfyUI WebSocket error on port ${comfyPort}:`, error);
+        });
+
+        comfyWs.on('close', () => {
+            console.log(`ComfyUI WebSocket closed on port ${comfyPort}`);
+            // 尝试重新连接
+            setTimeout(connectToComfyUI, 5000);
+        });
+
+        // 处理消息
+        comfyWs.on('message', (data) => {
+            try {
+                const message = JSON.parse(data);
+                // 广播消息给所有客户端
+                clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(message));
+                    }
+                });
+            } catch (error) {
+                console.error('Error handling ComfyUI message:', error);
             }
         });
-    });
-
-    comfyWs.on('message', (data) => {
-        try {
-            const message = JSON.parse(data);
-            console.log('收到ComfyUI消息:', message);
-            
-            // 转发相关消息到所有客户端
-            clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(message));
-                }
-            });
-        } catch (e) {
-            console.error('处理ComfyUI消息错误:', e);
-        }
-    });
-
-    comfyWs.on('close', () => {
-        console.log('ComfyUI WebSocket连接已关闭，尝试重新连接...');
-        // 广播断开连接消息
-        clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'connection', status: 'disconnected' }));
-            }
-        });
-        setTimeout(connectComfyWebSocket, 5000);
-    });
+    } catch (error) {
+        console.error('Error connecting to ComfyUI:', error);
+        // 尝试重新连接
+        setTimeout(connectToComfyUI, 5000);
+    }
 }
 
-// 启动时连接到ComfyUI WebSocket
-connectComfyWebSocket();
+// 修改 API 请求转发
+app.post('/api/queue-prompt', async (req, res) => {
+    try {
+        if (!comfyPort) {
+            throw new Error('ComfyUI connection not available');
+        }
+
+        const response = await axios.post(`http://127.0.0.1:${comfyPort}/queue`, req.body);
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error queuing prompt:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/history', async (req, res) => {
+    try {
+        if (!comfyPort) {
+            throw new Error('ComfyUI connection not available');
+        }
+
+        const response = await axios.get(`http://127.0.0.1:${comfyPort}/history`);
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/object_info', async (req, res) => {
+    try {
+        if (!comfyPort) {
+            throw new Error('ComfyUI connection not available');
+        }
+
+        const response = await axios.get(`http://127.0.0.1:${comfyPort}/object_info`);
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error fetching object info:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 初始化连接
+connectToComfyUI();
+
+// 定期检查连接状态
+setInterval(async () => {
+    if (!comfyWs || comfyWs.readyState === WebSocket.CLOSED) {
+        console.log('Checking ComfyUI connection...');
+        await connectToComfyUI();
+    }
+}, 10000);
 
 // 在文件开头的常量定义部分添加
 const MAX_SAVED_IMAGES = 20;  // 最大保留图片数量
@@ -1166,6 +1326,33 @@ app.get('/api/workflow-order', (req, res) => {
 
 // 启动服务器
 const PORT = process.env.PORT || 3005;
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+app.listen(PORT, async () => {
+    try {
+        let comfyPath;
+        try {
+            comfyPath = getComfyUIPath();
+        } catch (error) {
+            console.error('Failed to get ComfyUI path:', error);
+            process.exit(1);
+        }
+
+        if (!fs.existsSync(comfyPath)) {
+            console.error('ComfyUI path does not exist:', comfyPath);
+            process.exit(1);
+        }
+
+        if (!fs.existsSync(path.join(comfyPath, 'main.py'))) {
+            console.error('Invalid ComfyUI installation (main.py not found):', comfyPath);
+            process.exit(1);
+        }
+
+        console.log('Server running at http://localhost:' + PORT);
+        console.log('Using ComfyUI path:', comfyPath);
+        
+        // 初始化连接
+        await connectToComfyUI();
+    } catch (error) {
+        console.error('Server startup failed:', error);
+        process.exit(1);
+    }
 }); 
