@@ -60,16 +60,18 @@ try {
 
 // 获取 ComfyUI 路径的辅助函数
 const getComfyUIPath = () => {
-    // 优先使用配置文件中的路径
-    if (comfyuiPath && fs.existsSync(comfyuiPath)) {
-        console.log('Using configured ComfyUI path:', comfyuiPath);
-        return comfyuiPath;
+    try {
+        const configPath = path.join(__dirname, 'config.json');
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (config.comfyuiPath && fs.existsSync(path.join(config.comfyuiPath, 'main.py'))) {
+                return config.comfyuiPath;
+            }
+        }
+    } catch (error) {
+        console.error('Error reading ComfyUI path:', error);
     }
-    
-    // 使用默认路径
-    const defaultPath = path.join(__dirname, '..', 'ComfyUI');
-    console.log('Using default ComfyUI path:', defaultPath);
-    return defaultPath;
+    return path.join(__dirname, '..', 'ComfyUI'); // 默认路径
 };
 
 function connectComfyWebSocket() {
@@ -658,7 +660,7 @@ app.get('/api/models', (req, res) => {
     }
 });
 
-// 添加设置检查路由
+// 修改设置检查路由
 app.get('/api/settings', (req, res) => {
     try {
         const configPath = path.join(__dirname, 'config.json');
@@ -670,8 +672,10 @@ app.get('/api/settings', (req, res) => {
         
         // 检查 ComfyUI 路径是否有效
         if (settings.comfyuiPath) {
-            const isValid = fs.existsSync(path.join(settings.comfyuiPath, 'main.py'));
+            const mainPyPath = path.join(settings.comfyuiPath, 'main.py');
+            const isValid = fs.existsSync(mainPyPath);
             if (!isValid) {
+                console.log('Invalid ComfyUI path:', settings.comfyuiPath);
                 settings.comfyuiPath = '';
             }
         }
@@ -688,28 +692,34 @@ app.post('/api/settings', async (req, res) => {
     try {
         const { comfyuiPath } = req.body;
         
+        if (!comfyuiPath) {
+            return res.status(400).json({ error: '请提供 ComfyUI 路径' });
+        }
+
         // 验证路径是否有效
-        if (!fs.existsSync(path.join(comfyuiPath, 'main.py'))) {
-            return res.status(400).json({ error: '无效的 ComfyUI 路径' });
+        const mainPyPath = path.join(comfyuiPath, 'main.py');
+        if (!fs.existsSync(mainPyPath)) {
+            console.log('Invalid ComfyUI path, main.py not found:', mainPyPath);
+            return res.status(400).json({ error: '无效的 ComfyUI 路径：未找到 main.py' });
         }
         
         // 保存设置
         const configPath = path.join(__dirname, 'config.json');
-        fs.writeFileSync(configPath, JSON.stringify({ comfyuiPath }, null, 2));
+        const settings = { comfyuiPath };
+        
+        // 确保配置目录存在
+        const configDir = path.dirname(configPath);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        
+        // 写入配置文件
+        fs.writeFileSync(configPath, JSON.stringify(settings, null, 2));
         
         // 更新全局变量
         process.env.COMFYUI_DIR = comfyuiPath;
         
-        // 广播设置更新消息
-        clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ 
-                    type: 'settings_updated',
-                    settings: { comfyuiPath } 
-                }));
-            }
-        });
-        
+        console.log('Settings saved successfully:', settings);
         res.json({ success: true });
     } catch (error) {
         console.error('保存设置失败:', error);

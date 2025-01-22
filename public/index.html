@@ -3022,27 +3022,28 @@
         <el-dialog
             v-model="showSettings"
             title="设置"
-            width="500px"
             :close-on-click-modal="false"
+            :close-on-press-escape="false"
+            :show-close="false"
+            width="500px"
         >
-            <div class="settings-content">
-                <div class="setting-item">
-                    <div class="setting-label">ComfyUI 路径:</div>
+            <el-form>
+                <el-form-item label="ComfyUI 路径">
                     <el-input 
                         v-model="comfyuiPath"
-                        placeholder="请输入 ComfyUI 路径"
+                        placeholder="请输入 ComfyUI 的完整路径"
                     >
                         <template #append>
-                            <el-button @click="saveSettings">
-                                确认
+                            <el-button @click="selectComfyUIPath">
+                                选择目录
                             </el-button>
                         </template>
                     </el-input>
-                    <div class="setting-hint">
-                        例如: C:\path\to\ComfyUI 或 /path/to/ComfyUI
-                    </div>
-                </div>
-            </div>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button type="primary" @click="saveSettings">保存</el-button>
+            </template>
         </el-dialog>
 
         <!-- 修改遮罩绘制对话框的模板部分 -->
@@ -3780,7 +3781,7 @@
                     try {
                         const response = await axios.get('/api/settings');
                         if (response.data) {
-                            this.comfyuiPath = response.data.comfyuiPath;  // 直接设置到 comfyuiPath
+                            this.comfyuiPath = response.data.comfyuiPath || '';
                             // 如果没有设置 ComfyUI 路径，显示设置对话框
                             if (!this.comfyuiPath) {
                                 this.showSettings = true;
@@ -3788,21 +3789,42 @@
                         }
                     } catch (error) {
                         console.error('加载设置失败:', error);
+                        this.$message.error('加载设置失败');
                     }
                 },
                 async saveSettings() {
                     try {
-                        await axios.post('/api/settings', {
-                            comfyuiPath: this.comfyuiPath  // 修改这里，直接使用 comfyuiPath
+                        if (!this.comfyuiPath) {
+                            this.$message.warning('请输入 ComfyUI 路径');
+                            return;
+                        }
+
+                        const response = await axios.post('/api/settings', {
+                            comfyuiPath: this.comfyuiPath
                         });
-                        this.$message.success('设置保存成功');
-                        this.showSettings = false;
-                        // 保存后刷新页面
-                        window.location.reload();
+
+                        if (response.data.success) {
+                            this.$message.success('设置保存成功');
+                            this.showSettings = false;
+                            // 保存后刷新页面
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            throw new Error(response.data.error || '保存失败');
+                        }
                     } catch (error) {
                         console.error('保存设置失败:', error);
-                        this.$message.error('保存设置失败');
+                        this.$message.error(error.response?.data?.error || '保存设置失败');
                     }
+                },
+                selectComfyUIPath() {
+                    // 这里需要通过 IPC 调用主进程来打开文件选择器
+                    window.electron.ipcRenderer.invoke('select-directory').then(result => {
+                        if (result) {
+                            this.comfyuiPath = result;
+                        }
+                    });
                 },
                 async loadModelLists() {
                     try {

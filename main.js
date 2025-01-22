@@ -4,6 +4,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const { exec } = require('child_process');
 const net = require('net');
 const axios = require('axios');
+const fs = require('fs');
 
 require('./server.js');
 
@@ -540,5 +541,32 @@ ipcMain.handle('open-external-link', async (event, url) => {
     } catch (error) {
         console.error('打开外部链接失败:', error);
         return false;
+    }
+});
+
+// 添加目录选择的 IPC 处理
+ipcMain.handle('select-directory', async () => {
+    try {
+        const result = await dialog.showOpenDialog({
+            properties: ['openDirectory'],
+            title: '选择 ComfyUI 目录'
+        });
+        
+        if (!result.canceled && result.filePaths.length > 0) {
+            const selectedPath = result.filePaths[0];
+            // 检查是否是有效的 ComfyUI 目录
+            const mainPyPath = path.join(selectedPath, 'main.py');
+            if (fs.existsSync(mainPyPath)) {
+                return selectedPath;
+            } else {
+                dialog.showErrorBox('错误', '所选目录不是有效的 ComfyUI 目录，请确保目录中包含 main.py 文件');
+                return null;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('选择目录失败:', error);
+        dialog.showErrorBox('错误', '选择目录失败: ' + error.message);
+        return null;
     }
 }); 
