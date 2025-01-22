@@ -6,8 +6,8 @@
   },
   "paramCustomNames": {},
   "paramOrder": [
-    "3_scheduler",
     "14_ckpt_name",
+    "3_scheduler",
     "3_cfg"
   ]
 }

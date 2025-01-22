@@ -12,6 +12,7 @@ let comfyWindow;
 let pieMenuWindow = null;
 let errorWindow = null;
 let loadingWindow = null;
+let deepseekWindow = null;
 
 // 检查端口是否被占用
 function isPortInUse(port) {
@@ -214,6 +215,36 @@ function createPieMenu() {
     });
 }
 
+function createDeepseekWindow() {
+    deepseekWindow = new BrowserWindow({
+        width: 1280,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: false,
+            preload: path.join(__dirname, 'preload.js')
+        },
+        autoHideMenuBar: true,
+        frame: true
+    });
+
+    deepseekWindow.loadURL('https://chat.deepseek.com/sign_in');
+
+    if (isDev) {
+        deepseekWindow.webContents.openDevTools();
+    }
+
+    deepseekWindow.on('closed', () => {
+        deepseekWindow = null;
+    });
+
+    return deepseekWindow;
+}
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
@@ -239,23 +270,34 @@ function createWindow() {
 
     // 修改导航处理逻辑
     ipcMain.on('navigate', (event, url) => {
-        if (url === 'http://localhost:8188') {
-            if (comfyWindow && !comfyWindow.isDestroyed()) {
-                restoreWindow(comfyWindow);
+        try {
+            if (url === 'http://localhost:8188') {
+                // ComfyUI 窗口处理
+                if (comfyWindow && !comfyWindow.isDestroyed()) {
+                    restoreWindow(comfyWindow);
+                } else {
+                    createComfyWindow();
+                }
+            } else if (url === 'https://chat.deepseek.com/sign_in') {
+                // DeepSeek Chat 窗口处理
+                if (deepseekWindow && !deepseekWindow.isDestroyed()) {
+                    restoreWindow(deepseekWindow);
+                } else {
+                    createDeepseekWindow();
+                }
             } else {
-                createComfyWindow();
+                // 其他 URL 的处理
+                mainWindow.loadURL(url);
+                restoreWindow(mainWindow);
             }
+
             // 隐藏饼菜单
             if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
                 pieMenuWindow.hide();
             }
-        } else {
-            mainWindow.loadURL(url);
-            restoreWindow(mainWindow);
-            // 隐藏饼菜单
-            if (pieMenuWindow && !pieMenuWindow.isDestroyed()) {
-                pieMenuWindow.hide();
-            }
+        } catch (error) {
+            console.error('Navigation error:', error);
+            showErrorDialog('导航失败: ' + error.message);
         }
     });
 
@@ -478,6 +520,9 @@ app.whenReady().then(async () => {
 // 当所有窗口关闭时退出应用
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
+        if (deepseekWindow && !deepseekWindow.isDestroyed()) {
+            deepseekWindow.close();
+        }
         app.quit();
     }
 });
