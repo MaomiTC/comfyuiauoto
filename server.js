@@ -27,6 +27,7 @@ app.use(bodyParser.urlencoded({
 // 配置静态文件服务
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/image', express.static(path.join(__dirname, 'public', 'image')));
+app.use('/saved_images', express.static(path.join(__dirname, 'public', 'saved_images')));
 
 // 创建 WebSocket 服务器
 const wss = new WebSocket.Server({ port: wsPort });
@@ -578,9 +579,6 @@ app.get('/api/saved-images', (req, res) => {
     }
 });
 
-// 修改静态文件服务配置
-app.use('/saved_images', express.static(path.join(__dirname, 'public', 'saved_images')));
-
 // 在现有的路由之前添加新的路由
 app.get('/api/models', (req, res) => {
     try {
@@ -1077,21 +1075,43 @@ const ensureDirectories = () => {
 // 在启动服务器前确保目录存在
 ensureDirectories();
 
-// 添加新的路由来处理在Photoshop中打开图片
+// 修改处理在Photoshop中打开图片的路由
 app.post('/api/open-in-photoshop', async (req, res) => {
     try {
-        const { imagePath } = req.body;
+        const { imagePath, imageData } = req.body;
         
-        // 获取图片的完整路径
         let fullPath;
-        if (imagePath.startsWith('/saved_images/')) {
-            // 如果是保存的图片
-            fullPath = path.join(__dirname, 'public', imagePath);
-        } else if (imagePath.startsWith('/outputs/')) {
-            // 如果是输出目录的图片
-            fullPath = path.join(getComfyUIPath(), 'output', path.basename(imagePath));
+        if (imageData) {
+            // 如果收到base64数据，先保存为临时文件
+            const tempDir = path.join(__dirname, 'temp');
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+            
+            const tempFilePath = path.join(tempDir, `temp_${Date.now()}.png`);
+            fs.writeFileSync(tempFilePath, imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+            fullPath = tempFilePath;
+        } else if (imagePath) {
+            // 处理已保存的图片路径
+            if (imagePath.startsWith('/saved_images/')) {
+                fullPath = path.join(__dirname, 'public', imagePath);
+            } else if (imagePath.startsWith('/outputs/')) {
+                fullPath = path.join(getComfyUIPath(), 'output', path.basename(imagePath));
+            } else if (imagePath.startsWith('data:image')) {
+                // 处理base64图片数据
+                const tempDir = path.join(__dirname, 'temp');
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir, { recursive: true });
+                }
+                
+                const tempFilePath = path.join(tempDir, `temp_${Date.now()}.png`);
+                fs.writeFileSync(tempFilePath, imagePath.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+                fullPath = tempFilePath;
+            } else {
+                throw new Error('Invalid image path');
+            }
         } else {
-            throw new Error('Invalid image path');
+            throw new Error('No image data provided');
         }
 
         // 检查文件是否存在
@@ -1099,7 +1119,7 @@ app.post('/api/open-in-photoshop', async (req, res) => {
             throw new Error('Image file not found');
         }
 
-        // 使用虚拟环境中的 Python 脚本打开图片
+        // 使用Python脚本打开图片
         const pythonProcess = spawn(
             path.join(__dirname, 'phtoshopPython', 'venv', 'Scripts', 'python.exe'),
             [
@@ -1123,6 +1143,15 @@ app.post('/api/open-in-photoshop', async (req, res) => {
         });
 
         pythonProcess.on('close', (code) => {
+            // 如果是临时文件，在处理完后删除
+            if (fullPath.includes('temp_')) {
+                try {
+                    fs.unlinkSync(fullPath);
+                } catch (err) {
+                    console.warn('Failed to delete temp file:', err);
+                }
+            }
+
             if (code === 0) {
                 res.json({ success: true });
             } else {
