@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const isDev = process.env.NODE_ENV === 'development';
 
 // 导入 Express 服务器
 require('./server.js');
@@ -18,17 +17,38 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
-        }
+            preload: path.join(__dirname, 'preload.js'),
+            devTools: false  // 禁用开发者工具
+        },
+        // 添加以下配置来移除滚动条
+        backgroundColor: '#1e1e1e',
+        autoHideMenuBar: true,
+        useContentSize: true
     });
 
     // 加载应用
     mainWindow.loadURL('http://localhost:3005');
 
-    // 开发环境下打开开发者工具
-    if (isDev) {
-        mainWindow.webContents.openDevTools();
-    }
+    // 禁用菜单栏
+    mainWindow.setMenu(null);
+
+    // 注入自定义 CSS 来隐藏滚动条
+    mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.insertCSS(`
+            ::-webkit-scrollbar {
+                display: none !important;
+            }
+            * {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+            }
+            body {
+                overflow: hidden !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        `);
+    });
 
     // 当窗口关闭时触发
     mainWindow.on('closed', () => {
