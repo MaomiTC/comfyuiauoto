@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
             }
             return Promise.reject(new Error('Invalid channel'));
         }
-    }
+    },
+    openExternalLink: (url) => ipcRenderer.invoke('open-external-link', url),
+    toggleAlwaysOnTop: () => ipcRenderer.invoke('toggle-always-on-top')
 }); 

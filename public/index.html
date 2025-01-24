@@ -180,7 +180,7 @@
 
                     try {
                         const response = await axios.post('/api/open-in-photoshop', {
-                            imagePath: this.outputImage
+                            imageData: this.outputImage  // 直接发送当前显示的图片数据
                         });
 
                         if (response.data.success) {
