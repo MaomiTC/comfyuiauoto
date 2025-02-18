@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --watch main.js --watch server.js --exec electron .",
-    "build": "node build.js && electron-builder",
+    "build": "electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "author": "Your Name",
@@ -34,6 +34,7 @@
     "files": [
       "main.js",
       "server.js",
+      "preload.js",
       "package.json",
       "node_modules/**/*",
       "public/**/*",
@@ -42,7 +43,8 @@
       "saved_images/**/*",
       "temp/**/*",
       "original_images/**/*",
-      "config.json"
+      "config.json",
+      "phtoshopPython/**/*"
     ],
     "win": {
       "target": [
@@ -59,7 +61,9 @@
           ]
         }
       ],
-      "icon": "./public/image/logox.ico"
+      "icon": "./public/image/logox.ico",
+      "signingHashAlgorithms": null,
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,

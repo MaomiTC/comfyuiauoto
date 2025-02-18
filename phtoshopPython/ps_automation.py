@@ -86,12 +86,15 @@ class PhotoshopAutomation:
 def open_image(image_path):
     """打开指定图片到Photoshop"""
     try:
+        print(f"Opening image: {image_path}")
         with Session() as ps:
             # 检查是否有当前文档
             try:
                 doc = ps.app.activeDocument
+                print("Using existing document")
             except Exception:
                 # 如果没有活动文档，创建新文档
+                print("Creating new document")
                 doc = ps.app.documents.add(
                     width=1920,
                     height=1080,
@@ -102,6 +105,7 @@ def open_image(image_path):
             # 创建新图层
             layer = doc.artLayers.add()
             layer.name = os.path.basename(image_path)
+            print(f"Created new layer: {layer.name}")
 
             # 将图片放置到图层
             js_code = f'''
@@ -111,17 +115,19 @@ def open_image(image_path):
             executeAction(idPlc, desc, DialogModes.NO);
             '''
             ps.app.doJavaScript(js_code)
+            print("Successfully placed image in Photoshop")
             
             return True
     except Exception as e:
-        print(f"在Photoshop中打开图片时出错: {str(e)}")
+        print(f"Error opening image in Photoshop: {str(e)}")
         return False
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         image_path = sys.argv[1]
+        print(f"Received image path: {image_path}")
         success = open_image(image_path)
         sys.exit(0 if success else 1)
     else:
-        print("请提供图片路径")
+        print("No image path provided")
         sys.exit(1) 
