@@ -12,8 +12,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
-        minWidth: 800,
-        minHeight: 600,
+        resizable: true, // 允许调整大小
         icon: path.join(__dirname, 'public', 'image', 'logox.ico'),
         webPreferences: {
             nodeIntegration: true,
@@ -55,14 +54,18 @@ function createWindow() {
             .custom-titlebar {
                 position: fixed;
                 top: 0;
-                right: 0;
+                left: 0;  // 改为左侧
                 z-index: 9999;
                 height: ${titleBarHeight}px;
                 padding: 5px 10px;
                 display: flex;
                 align-items: center;
-                justify-content: flex-end;
-                background: transparent;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            .custom-titlebar:hover {
+                opacity: 1;
             }
 
             .pin-button {
@@ -71,19 +74,16 @@ function createWindow() {
                 border: none;
                 background: rgba(0, 0, 0, 0.5);
                 color: white;
-                border-radius: 50%;
+                border-radius: 4px;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 transition: all 0.3s ease;
-                backdrop-filter: blur(5px);
-                margin-right: 10px;
             }
 
             .pin-button:hover {
-                background: rgba(0, 0, 0, 0.7);
-                transform: scale(1.1);
+                background: rgba(0, 0, 0, 0.8);
             }
 
             .pin-button.active {
