@@ -12,6 +12,7 @@
             padding: 0;
             background-color: #1e1e1e;
             color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .container {
@@ -24,33 +25,80 @@
         
         .image-container {
             position: relative;
-            max-width: 800px;
-            width: 100%;
+            max-width: 90vw;
+            max-height: 90vh;
+            width: auto;
+            height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         
         .latest-image {
             max-width: 100%;
+            max-height: 80vh;
             height: auto;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+            cursor: zoom-in;
+            object-fit: contain;
+        }
+
+        .latest-image.zoomed {
+            cursor: zoom-out;
         }
 
         .image-controls {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
             right: 20px;
             display: flex;
             gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+
+        .control-button {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: #66b1ff;
+            transform: translateY(-2px);
+        }
+
+        .control-button i {
+            font-size: 16px;
         }
 
         .loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
+            border-radius: 8px;
+            z-index: 1000;
         }
 
         .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #409EFF;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -58,9 +106,32 @@
             margin: 0 auto 10px;
         }
 
+        .zoom-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .prompt-display {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 300px;
+            backdrop-filter: blur(5px);
         }
     </style>
 </head>
@@ -69,87 +140,117 @@
         <div class="container">
             <div class="image-container">
                 <template v-if="outputImage">
-                        <img 
-                            :src="outputImage" 
-                            class="latest-image"
-                            @error="handleImageError"
-                            :alt="outputPrompt || '新生成的图片'"
-                        >
-                        <div class="image-controls">
-                            <el-button 
-                                type="primary" 
-                                size="small" 
-                                @click="downloadImage"
-                                circle
-                            >
-                                <i class="fas fa-download"></i>
-                            </el-button>
-
-                            <el-button
-                                type="primary"
-                                circle
-                                @click="openInPhotoshop"
-                                title="在Photoshop中打开"
-                            >
-                                <i class="fas fa-edit"></i>
-                            </el-button>
-                        </div>
-                    </template>
-                <template v-else>
-                        <div class="loading-indicator">
-                            <div class="loading-spinner"></div>
-                        <div>等待接收图片...</div>
-                        </div>
-                    </template>
+                    <img 
+                        :src="outputImage"
+                        class="latest-image"
+                        :class="{ 'zoomed': isZoomed }"
+                        @click="toggleZoom"
+                        :style="imageStyle"
+                        @error="handleImageError"
+                        @load="imageLoaded = true"
+                    >
+                </template>
+                <div v-if="loading" class="loading-indicator">
+                    <div class="loading-spinner"></div>
+                    <div>处理中...</div>
                 </div>
             </div>
+
+            <div class="zoom-controls">
+                <button class="control-button" @click="zoomIn">
+                    <i class="fas fa-search-plus"></i>
+                </button>
+                <button class="control-button" @click="zoomOut">
+                    <i class="fas fa-search-minus"></i>
+                </button>
+                <button class="control-button" @click="resetZoom">
+                    <i class="fas fa-compress"></i>
+                </button>
+            </div>
+
+            <div class="image-controls">
+                <button class="control-button" @click="downloadImage">
+                    <i class="fas fa-download"></i>
+                    保存
+                </button>
+                <button class="control-button" @click="openInPhotoshop">
+                    <i class="fas fa-edit"></i>
+                    编辑
+                </button>
+            </div>
+
+            <div v-if="outputPrompt" class="prompt-display">
+                <div>{{ outputPrompt }}</div>
+            </div>
         </div>
+    </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/element-plus"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
-        const { createApp, ref } = Vue;
+        const { createApp, ref, computed } = Vue;
         
         createApp({
-            data() {
-                return {
-                    outputImage: null,
-                    outputPrompt: '',
-                    ws: null,
-                    imageLoadError: false
-                }
-            },
-            methods: {
-                connectWebSocket() {
-                    this.ws = new WebSocket('ws://localhost:3001');
+            setup() {
+                const outputImage = ref(null);
+                const outputPrompt = ref('');
+                const loading = ref(false);
+                const imageLoadError = ref(false);
+                const imageLoaded = ref(false);
+                const zoomLevel = ref(1);
+                const isZoomed = ref(false);
+
+                const imageStyle = computed(() => ({
+                    transform: `scale(${zoomLevel.value})`,
+                    transition: 'transform 0.3s ease'
+                }));
+
+                function connectWebSocket() {
+                    const ws = new WebSocket('ws://localhost:3001');
                     
-                    this.ws.onmessage = async (event) => {
+                    ws.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
-                            if (data.type === 'image') {
-                                if (data.image) {
-                                    this.outputImage = 'data:image/png;base64,' + data.image;
-                                }
-                                this.outputPrompt = data.prompt;
+                            if (data.image) {
+                                outputImage.value = 'data:image/png;base64,' + data.image;
                             }
+                            outputPrompt.value = data.prompt;
                         } catch (error) {
                             console.error('Error processing WebSocket message:', error);
                         }
                     };
-                },
-                
-                handleImageError(e) {
-                    console.error('图片加载失败:', e);
-                    this.imageLoadError = true;
-                },
-                
-                async downloadImage() {
-                    if (!this.outputImage) return;
+                }
+
+                function toggleZoom() {
+                    if (isZoomed.value) {
+                        resetZoom();
+                    } else {
+                        zoomLevel.value = 2;
+                        isZoomed.value = true;
+                    }
+                }
+
+                function zoomIn() {
+                    zoomLevel.value = Math.min(zoomLevel.value + 0.2, 3);
+                    isZoomed.value = zoomLevel.value > 1;
+                }
+
+                function zoomOut() {
+                    zoomLevel.value = Math.max(zoomLevel.value - 0.2, 0.5);
+                    isZoomed.value = zoomLevel.value > 1;
+                }
+
+                function resetZoom() {
+                    zoomLevel.value = 1;
+                    isZoomed.value = false;
+                }
+
+                async function downloadImage() {
+                    if (!outputImage.value) return;
                     
                     try {
-                        const response = await fetch(this.outputImage);
+                        const response = await fetch(outputImage.value);
                         const blob = await response.blob();
                         const url = window.URL.createObjectURL(blob);
                         
@@ -161,43 +262,66 @@
                         window.URL.revokeObjectURL(url);
                         document.body.removeChild(a);
                         
-                        this.$message({
+                        ElementPlus.ElMessage({
                             message: '图片下载成功',
                             type: 'success',
                             duration: 2000
                         });
                     } catch (error) {
                         console.error('下载图片失败:', error);
-                        this.$message.error('下载图片失败');
+                        ElementPlus.ElMessage.error('下载图片失败');
                     }
-                },
-                
-                async openInPhotoshop() {
-                    if (!this.outputImage) {
-                            this.$message.warning('没有可用的图片');
-                            return;
-                        }
+                }
+
+                async function openInPhotoshop() {
+                    if (!outputImage.value) {
+                        ElementPlus.ElMessage.warning('没有可用的图片');
+                        return;
+                    }
 
                     try {
                         const response = await axios.post('/api/open-in-photoshop', {
-                            imageData: this.outputImage  // 直接发送当前显示的图片数据
+                            imageData: outputImage.value
                         });
 
                         if (response.data.success) {
-                            this.$message.success('已经发送到Photoshop');
+                            ElementPlus.ElMessage.success('已经发送到Photoshop');
                         } else {
-                            this.$message.error('发送到Photoshop失败');
+                            ElementPlus.ElMessage.error('发送到Photoshop失败');
                         }
                     } catch (error) {
                         console.error('发送到Photoshop失败:', error);
-                        this.$message.error(error.response?.data?.error || '发送图片失败');
+                        ElementPlus.ElMessage.error(error.response?.data?.error || '发送图片失败');
                     }
                 }
-            },
-            mounted() {
-                this.connectWebSocket();
+
+                function handleImageError(e) {
+                    console.error('图片加载失败:', e);
+                    imageLoadError.value = true;
+                }
+
+                // 在组件挂载时连接WebSocket
+                connectWebSocket();
+
+                return {
+                    outputImage,
+                    outputPrompt,
+                    loading,
+                    imageLoadError,
+                    imageLoaded,
+                    downloadImage,
+                    openInPhotoshop,
+                    handleImageError,
+                    zoomLevel,
+                    isZoomed,
+                    imageStyle,
+                    toggleZoom,
+                    zoomIn,
+                    zoomOut,
+                    resetZoom
+                };
             }
-        }).use(ElementPlus).mount('#app')
+        }).use(ElementPlus).mount('#app');
     </script>
 </body>
 </html> 
