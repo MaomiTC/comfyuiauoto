@@ -1,6 +1,8 @@
 {
   "order": [
+    "order.json",
     "image.json",
-    "Unsaved Workflow (2).json"
+    "Unsaved Workflow (2).json",
+    "default.json"
   ]
 }
